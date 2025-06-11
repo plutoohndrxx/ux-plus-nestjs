@@ -1,0 +1,122 @@
+name: testing integration and e2e testing
+
+on:
+  push:
+    branches:
+      - 'master'
+      - 'develop'
+      - 'release/*'
+      - 'hotfix/*'
+      - 'feature/*'
+  pull_request:
+    branches:
+      - 'develop'
+      - 'master'
+
+jobs:
+  test-integration:
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo
+        ports:
+          - 27017:27017
+        env:
+          MONGO_INITDB_ROOT_USERNAME: root
+          MONGO_INITDB_ROOT_PASSWORD: 123456
+          MONGO_INITDB_DATABASE: tests
+      redis:
+        image: redis:8.0
+        ports:
+          - 6379:6379
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Mysql
+        run: |
+         sudo docker pull mysql:9.3 && \
+         docker run -d \
+         --name mysql \
+         -e MYSQL_ROOT_PASSWORD=123456 \
+         -e MYSQL_DATABASE=platform \
+         -e MYSQL_USER=ux \
+         -e MYSQL_PASSWORD=123456 \
+         -p 3306:3306 \
+         -v ${{github.workspace}}/docker-init-scripts/mysql:/docker-entrypoint-initdb.d \
+         mysql:9.3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3.9.1
+        with:
+          node-version: "22"
+
+      - name: Install PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: true
+
+      - name: Run integration tests
+        run: pnpm test
+
+      - name: Generate test(integration) report
+        uses: mikepenz/action-junit-report@v5.2.0
+        if: always() 
+        with:
+          token: ${{ github.token }}
+          report_paths: reports/report.xml
+          check_name: Generate test report
+  test-e2e:
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo
+        ports:
+          - 27017:27017
+        env:
+          MONGO_INITDB_ROOT_USERNAME: root
+          MONGO_INITDB_ROOT_PASSWORD: 123456
+          MONGO_INITDB_DATABASE: tests
+      redis:
+        image: redis:8.0
+        ports:
+          - 6379:6379
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Mysql
+        run: |
+         sudo docker pull mysql:9.3 && \
+         docker run -d \
+         --name mysql \
+         -e MYSQL_ROOT_PASSWORD=123456 \
+         -e MYSQL_DATABASE=platform \
+         -e MYSQL_USER=ux \
+         -e MYSQL_PASSWORD=123456 \
+         -p 3306:3306 \
+         -v ${{github.workspace}}/docker-init-scripts/mysql:/docker-entrypoint-initdb.d \
+         mysql:9.3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3.9.1
+        with:
+          node-version: "22"
+
+      - name: Install PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: true
+
+      - name: Run integration tests
+        run: pnpm test:e2e
+
+      - name: Generate test(e2e) report
+        uses: mikepenz/action-junit-report@v5.2.0
+        if: always() 
+        with:
+          token: ${{ github.token }}
+          report_paths: reports/report.e2e.xml
+          check_name: Generate test(e2e) report
